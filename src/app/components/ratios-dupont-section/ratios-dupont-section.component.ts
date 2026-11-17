@@ -265,7 +265,7 @@ import { FinancialRatio, DuPontData, RatioCategory } from '../../models/financia
                   <!-- Motor 1: Margen Neto -->
                   <tr class="hover:bg-slate-50 transition-colors">
                     <td class="py-2.5 px-3">
-                      <div class="font-semibold text-slate-900">Margen Neto (Motor 1)</div>
+                      <div class="font-semibold text-slate-900">{{ dupont.netMargin.title || '1. Margen Neto (Motor 1)' }}</div>
                       <div class="text-[10px] text-slate-500">Rentabilidad sobre Ventas</div>
                     </td>
                     <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
@@ -284,7 +284,7 @@ import { FinancialRatio, DuPontData, RatioCategory } from '../../models/financia
                   <!-- Motor 2: Rotación de Activos -->
                   <tr class="hover:bg-slate-50 transition-colors">
                     <td class="py-2.5 px-3">
-                      <div class="font-semibold text-slate-900">Rotación de Activos (Motor 2)</div>
+                      <div class="font-semibold text-slate-900">{{ dupont.assetTurnover.title || '2. Rotación de Activos (Motor 2)' }}</div>
                       <div class="text-[10px] text-slate-500">Eficiencia en Uso de Capital</div>
                     </td>
                     <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
@@ -301,7 +301,7 @@ import { FinancialRatio, DuPontData, RatioCategory } from '../../models/financia
                   <!-- Motor 3: Apalancamiento Financiero -->
                   <tr class="hover:bg-slate-50 transition-colors">
                     <td class="py-2.5 px-3">
-                      <div class="font-semibold text-slate-900">Apalancamiento (Motor 3)</div>
+                      <div class="font-semibold text-slate-900">{{ dupont.financialLeverage.title || '3. Apalancamiento (Motor 3)' }}</div>
                       <div class="text-[10px] text-slate-500">Multiplicador de Capital (Activo/Pat.)</div>
                     </td>
                     <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
@@ -356,24 +356,30 @@ import { FinancialRatio, DuPontData, RatioCategory } from '../../models/financia
 
                 <div class="space-y-2 text-xs">
                   <div class="flex items-start gap-2">
-                    <span class="text-rose-500 font-bold text-sm leading-none mt-0.5">▼</span>
+                    <span [class.text-rose-500]="dupont.netMargin.diff < 0" [class.text-emerald-500]="dupont.netMargin.diff >= 0" class="font-bold text-sm leading-none mt-0.5">
+                      {{ dupont.netMargin.diff >= 0 ? '▲' : '▼' }}
+                    </span>
                     <div>
-                      <strong class="text-slate-800">Margen Neto:</strong>
-                      <span class="text-slate-600 ml-1">Efecto contractivo por mayor impacto de diferencia de cambio.</span>
+                      <strong class="text-slate-800">1. Margen Neto (Motor 1):</strong>
+                      <span class="text-slate-600 ml-1">{{ dupont.netMargin.impactOnRoe }}</span>
                     </div>
                   </div>
                   <div class="flex items-start gap-2">
-                    <span class="text-emerald-500 font-bold text-sm leading-none mt-0.5">▲</span>
+                    <span [class.text-rose-500]="dupont.assetTurnover.diff < 0" [class.text-emerald-500]="dupont.assetTurnover.diff >= 0" class="font-bold text-sm leading-none mt-0.5">
+                      {{ dupont.assetTurnover.diff >= 0 ? '▲' : '▼' }}
+                    </span>
                     <div>
-                      <strong class="text-slate-800">Rotación de Activos:</strong>
-                      <span class="text-slate-600 ml-1">Aporte impulsor (+0.06x), dinamizando la velocidad de ventas sobre el activo.</span>
+                      <strong class="text-slate-800">2. Rotación de Activos (Motor 2):</strong>
+                      <span class="text-slate-600 ml-1">{{ dupont.assetTurnover.impactOnRoe }}</span>
                     </div>
                   </div>
                   <div class="flex items-start gap-2">
-                    <span class="text-emerald-500 font-bold text-sm leading-none mt-0.5">▲</span>
+                    <span [class.text-rose-500]="dupont.financialLeverage.diff < 0" [class.text-emerald-500]="dupont.financialLeverage.diff >= 0" class="font-bold text-sm leading-none mt-0.5">
+                      {{ dupont.financialLeverage.diff >= 0 ? '▲' : '▼' }}
+                    </span>
                     <div>
-                      <strong class="text-slate-800">Apalancamiento:</strong>
-                      <span class="text-slate-600 ml-1">Multiplicador financiero equilibrado (+0.11x) que potenció el rendimiento del capital.</span>
+                      <strong class="text-slate-800">3. Apalancamiento (Motor 3):</strong>
+                      <span class="text-slate-600 ml-1">{{ dupont.financialLeverage.impactOnRoe }}</span>
                     </div>
                   </div>
                 </div>

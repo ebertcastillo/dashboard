@@ -68,17 +68,32 @@ Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, L
           </div>
 
           <!-- Highlight Summary Card -->
-          <div class="mt-3 p-3 bg-white rounded-lg border border-sky-200 text-xs">
-            <div class="flex items-center justify-between mb-1">
-              <span class="font-bold text-slate-900">CCE 2025: <strong class="text-emerald-700 font-mono text-sm">-9.66 días</strong></span>
-              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                ▲ Favorable (-7.02 d)
-              </span>
+          @if (cceItem; as cce) {
+            <div class="mt-3 p-3 bg-white rounded-lg border border-sky-200 text-xs">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-bold text-slate-900">
+                  CCE 2025: <strong class="text-emerald-700 font-mono text-sm">{{ cce.val2025 }} días</strong>
+                </span>
+                <span
+                  class="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                  [ngClass]="cce.diff <= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
+                >
+                  {{ cce.diff <= 0 ? '▲ Favorable' : '▼ Incremento' }} ({{ cce.diff >= 0 ? '+' : '' }}{{ cce.diff }} d)
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                <strong>Eficiencia de Capital de Trabajo:</strong>
+                @if (dsoItem && dioItem && dpoItem) {
+                  La empresa cobra a clientes en <strong>{{ dsoItem.val2025 }} días</strong> (DSO) y rota inventarios en <strong>{{ dioItem.val2025 }} días</strong> (DIO), mientras paga a proveedores a los <strong>{{ dpoItem.val2025 }} días</strong> (DPO).
+                }
+                @if (cce.val2025 < 0) {
+                  El ciclo negativo de {{ cce.val2025 }} días significa que los proveedores comerciales financian íntegramente las operaciones.
+                } @else {
+                  El ciclo neto de efectivo es de {{ cce.val2025 }} días requeridos para convertir el ciclo operativo en liquidez efectiva.
+                }
+              </p>
             </div>
-            <p class="text-[11px] text-slate-600 leading-relaxed">
-              <strong>Eficiencia Comercial Óptima:</strong> La empresa cobra a clientes en <strong>31.92 días</strong> y rota inventarios en <strong>205.49 días</strong>, mientras paga a proveedores a los <strong>75.81 días</strong>. El ciclo negativo de -9.66 días significa que los proveedores financian íntegramente las operaciones.
-            </p>
-          </div>
+          }
         </div>
 
         <!-- RIGHT: VENTAS POR LÍNEA DE NEGOCIO (BS. MILLONES) -->
@@ -131,6 +146,22 @@ export class CommercialEfficiencyComponent implements AfterViewInit, OnDestroy, 
   @Input() workingCapitalItems: WorkingCapitalCycleItem[] = [];
   @Input() businessLines: BusinessLineItem[] = [];
 
+  get cceItem(): WorkingCapitalCycleItem | undefined {
+    return this.workingCapitalItems.find(i => i.id === 'cce' || i.shortName?.toLowerCase() === 'cce');
+  }
+
+  get dioItem(): WorkingCapitalCycleItem | undefined {
+    return this.workingCapitalItems.find(i => i.id === 'dio' || i.shortName?.toLowerCase() === 'dio');
+  }
+
+  get dsoItem(): WorkingCapitalCycleItem | undefined {
+    return this.workingCapitalItems.find(i => i.id === 'dso' || i.shortName?.toLowerCase() === 'dso');
+  }
+
+  get dpoItem(): WorkingCapitalCycleItem | undefined {
+    return this.workingCapitalItems.find(i => i.id === 'dpo' || i.shortName?.toLowerCase() === 'dpo');
+  }
+
   private wcChart: Chart | null = null;
   private blChart: Chart | null = null;
   private readonly platformId = inject(PLATFORM_ID);
@@ -142,8 +173,12 @@ export class CommercialEfficiencyComponent implements AfterViewInit, OnDestroy, 
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['workingCapitalItems'] || changes['businessLines']) && this.wcChart && this.blChart) {
-      this.updateCharts();
+    if (changes['workingCapitalItems'] || changes['businessLines']) {
+      if (this.wcChart && this.blChart) {
+        this.updateCharts();
+      } else if (isPlatformBrowser(this.platformId)) {
+        this.initCharts();
+      }
     }
   }
 

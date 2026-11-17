@@ -331,7 +331,7 @@ export const COMMERCIAL_INITIAL_DATA: FinancialReport = {
   // SISTEMA DUPONT Y COVENANTS BBV (IMAGEN 4)
   dupont: {
     netMargin: {
-      title: 'Margen Neto (Motor 1)',
+      title: '1. Margen Neto (Motor 1)',
       name: 'Rentabilidad s/ Ventas',
       formula: 'Utilidad Neta / Ingresos Netos',
       year2025: 11.06,
@@ -343,7 +343,7 @@ export const COMMERCIAL_INITIAL_DATA: FinancialReport = {
       impactOnRoe: 'Impacto en el ROE: -1.88 p.p. debido a la carga cambiaria no operativa.'
     },
     assetTurnover: {
-      title: 'Rotación de Activos (Motor 2)',
+      title: '2. Rotación de Activos (Motor 2)',
       name: 'Eficiencia en Activos',
       formula: 'Ingresos Netos / Activos Totales',
       year2025: 0.71,
@@ -355,7 +355,7 @@ export const COMMERCIAL_INITIAL_DATA: FinancialReport = {
       impactOnRoe: 'Impacto dinamizador: +1.10 p.p. gracias a mayor velocidad en ventas de camiones y repuestos.'
     },
     financialLeverage: {
-      title: 'Apalancamiento (Motor 3)',
+      title: '3. Apalancamiento (Motor 3)',
       name: 'Multiplicador de Capital',
       formula: 'Activos Totales / Patrimonio Neto',
       year2025: 1.66,
