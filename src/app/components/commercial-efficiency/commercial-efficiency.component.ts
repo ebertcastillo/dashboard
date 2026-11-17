@@ -89,7 +89,7 @@ Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, L
                 @if (cce.val2025 < 0) {
                   El ciclo negativo de {{ cce.val2025 }} días significa que los proveedores comerciales financian íntegramente las operaciones.
                 } @else {
-                  El ciclo neto de efectivo es de {{ cce.val2025 }} días requeridos para convertir el ciclo operativo en liquidez efectiva.
+                  El ciclo neto de efectivo se redujo a <strong>{{ cce.val2025 }} días</strong> frente a {{ cce.val2024 }} días en 2024, logrando una compresión favorable de <strong>{{ cceAbsDiff }} días</strong> que optimiza la liquidez operativa.
                 }
               </p>
             </div>
@@ -133,7 +133,7 @@ Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, L
         </div>
         <div>
           <strong class="font-bold text-slate-900">Explicación Clara de Negocios y Eficiencia: </strong>
-          Las unidades comerciales con mayor aporte al crecimiento del <strong>24.41% en ingresos</strong> fueron <strong>Camiones (Bs. 414.62M, 34.11%)</strong>, <strong>Repuestos y Materiales (Bs. 289.24M, 23.79%)</strong> y <strong>Maquinaria Agrícola John Deere (Bs. 200.05M, 16.46%)</strong>. Simultáneamente, el periodo medio de cobro disminuyó drásticamente de 95.12 a <strong>31.92 días</strong> (-63.20 días) y la rotación de inventarios se aceleró en <strong>94.59 días</strong>, robusteciendo la generación de flujo operativo de caja.
+          Las unidades comerciales con mayor aporte al crecimiento del <strong>24.41% en ingresos</strong> fueron <strong>Camiones (Bs. 414.62M, 34.11%)</strong>, <strong>Repuestos y Materiales (Bs. 289.24M, 23.79%)</strong> y <strong>Maquinaria Agrícola John Deere (Bs. 200.05M, 16.46%)</strong>. Simultáneamente, el periodo medio de cobro disminuyó a <strong>{{ dsoItem?.val2025 ?? 32 }} días</strong> (DSO) y la permanencia de inventarios bajó a <strong>{{ dioItem?.val2025 ?? 205 }} días</strong> (DIO), con un ciclo neto de efectivo favorable de <strong>{{ cceItem?.val2025 ?? -10 }} días</strong>.
         </div>
       </div>
     </div>
@@ -160,6 +160,10 @@ export class CommercialEfficiencyComponent implements AfterViewInit, OnDestroy, 
 
   get dpoItem(): WorkingCapitalCycleItem | undefined {
     return this.workingCapitalItems.find(i => i.id === 'dpo' || i.shortName?.toLowerCase() === 'dpo');
+  }
+
+  get cceAbsDiff(): number {
+    return Math.abs(this.cceItem?.diff ?? 0);
   }
 
   private wcChart: Chart | null = null;

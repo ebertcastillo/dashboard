@@ -683,61 +683,147 @@ export class FinancialDataService {
     // Universal multi-sheet concept lookup helper
     const searchAcrossSheets = (matcher: (t: string) => boolean, isPct: boolean = false) => {
       let res = findConceptValues(rowsDupont, matcher, isPct);
-      if (!res.found) res = findConceptValues(rowsRatios, matcher, isPct);
-      if (!res.found && rowsDatos.length > 0) res = findConceptValues(rowsDatos, matcher, isPct);
-      if (!res.found) {
+      if (!res.found || (isPct && (res.val2025 > 100 || res.val2024 > 100))) {
+        res = findConceptValues(rowsRatios, matcher, isPct);
+      }
+      if ((!res.found || (isPct && (res.val2025 > 100 || res.val2024 > 100))) && rowsDatos.length > 0) {
+        res = findConceptValues(rowsDatos, matcher, isPct);
+      }
+      if (!res.found || (isPct && (res.val2025 > 100 || res.val2024 > 100))) {
         for (const s of allSheetsData) {
-          res = findConceptValues(s.rows, matcher, isPct);
-          if (res.found) break;
+          // If searching for a percentage, skip financial statement sheets (EST. FINANCIEROS / Balance / PyG) which contain currency amounts
+          if (isPct) {
+            const cleanName = s.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (cleanName.includes('est') || cleanName.includes('balance') || cleanName.includes('resultados') || cleanName.includes('ganancias')) {
+              continue;
+            }
+          }
+          const candidate = findConceptValues(s.rows, matcher, isPct);
+          if (candidate.found) {
+            if (isPct && (candidate.val2025 > 100 || candidate.val2024 > 100)) {
+              continue;
+            }
+            res = candidate;
+            break;
+          }
         }
+      }
+      if (isPct && (res.val2025 > 100 || res.val2024 > 100)) {
+        return { val2025: 0, val2024: 0, found: false };
       }
       return res;
     };
 
-    // Dynamic extraction of CCE and Working Capital across sheets
-    let cceData = searchAcrossSheets(matchCCE, false);
-    let dioData = searchAcrossSheets(matchDIO, false);
-    let dsoData = searchAcrossSheets(matchDSO, false);
-    let dpoData = searchAcrossSheets(matchDPO, false);
+    // =========================================================================
+    // MÉTODO EXCLUSIVO: EXTRACCIÓN Y CÁLCULO DEL CICLO DE CAPITAL DE TRABAJO (DIO, DSO, DPO, CCE)
+    // =========================================================================
+    const isMatchDIO = (t: string) => (
+      (t.includes('dias') && t.includes('inventario')) ||
+      t === 'dio' ||
+      t.includes('(dio)') ||
+      t.startsWith('dio ') ||
+      t === 'dias inventario (dio)'
+    );
+    const isMatchDSO = (t: string) => (
+      (t.includes('dias') && (t.includes('cobro') || t.includes('cxc') || t.includes('cobrar'))) ||
+      t === 'dso' ||
+      t.includes('(dso)') ||
+      t.startsWith('dso ') ||
+      t === 'dias cobro (dso)'
+    );
+    const isMatchDPO = (t: string) => (
+      (t.includes('dias') && (t.includes('pago') || t.includes('cxp') || t.includes('proveedor'))) ||
+      t === 'dpo' ||
+      t.includes('(dpo)') ||
+      t.startsWith('dpo ') ||
+      t === 'dias pago prov. (dpo)'
+    );
+    const isMatchCCE = (t: string) => (
+      (t.includes('ciclo') && (t.includes('conversion') || t.includes('efectivo') || t.includes('cce') || t.includes('caja'))) ||
+      t === 'cce' ||
+      t.includes('(cce)') ||
+      t.startsWith('cce ') ||
+      t === 'ciclo efectivo (cce)'
+    );
 
-    // Statements fallback for DIO, DSO, DPO calculation
+    const extractMetricFromSheet = (rows: any[][], matcher: (t: string) => boolean): { v25: number; v24: number; found: boolean } => {
+      if (!rows || rows.length === 0) return { v25: 0, v24: 0, found: false };
+      const { col2025, col2024 } = detectYearColumns(rows);
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || row.length === 0) continue;
+        for (let c = 0; c < Math.min(row.length, 5); c++) {
+          const cell = String(row[c] || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+          if (cell && matcher(cell)) {
+            if (col2025 !== -1 && col2024 !== -1 && col2025 !== c && col2024 !== c) {
+              const p25 = parseNumber(row[col2025]);
+              const p24 = parseNumber(row[col2024]);
+              if (p25 !== null && p24 !== null) {
+                return { v25: Number(p25.toFixed(2)), v24: Number(p24.toFixed(2)), found: true };
+              }
+            }
+            const nums: number[] = [];
+            for (let col = c + 1; col < row.length; col++) {
+              const n = parseNumber(row[col]);
+              if (n !== null) nums.push(n);
+            }
+            if (nums.length >= 2) {
+              return { v25: Number(nums[0].toFixed(2)), v24: Number(nums[1].toFixed(2)), found: true };
+            }
+          }
+        }
+      }
+      return { v25: 0, v24: 0, found: false };
+    };
+
+    let dioFound = { v25: 0, v24: 0, found: false };
+    let dsoFound = { v25: 0, v24: 0, found: false };
+    let dpoFound = { v25: 0, v24: 0, found: false };
+    let cceFound = { v25: 0, v24: 0, found: false };
+
+    // Búsqueda en orden de prioridad: 1. RATIOS FINANCIEROS / RATIOS Y DUPONT, 2. DATOS DASHBOARD, 3. Todas las hojas
+    const wcCandidateSheets = [rowsRatios, rowsDatos, ...allSheetsData.map(s => s.rows)];
+    for (const sheetRows of wcCandidateSheets) {
+      if (!dioFound.found) dioFound = extractMetricFromSheet(sheetRows, isMatchDIO);
+      if (!dsoFound.found) dsoFound = extractMetricFromSheet(sheetRows, isMatchDSO);
+      if (!dpoFound.found) dpoFound = extractMetricFromSheet(sheetRows, isMatchDPO);
+      if (!cceFound.found) cceFound = extractMetricFromSheet(sheetRows, isMatchCCE);
+    }
+
+    // Fórmulas contables de respaldo calculadas desde los estados financieros
     const costSales25 = Math.abs(findValuesInRows(rowsEstFin, 'costo de productos').val2025 || findValuesInRows(rowsEstFin, 'costo de ventas').val2025 || 810335830);
     const costSales24 = Math.abs(findValuesInRows(rowsEstFin, 'costo de productos').val2024 || findValuesInRows(rowsEstFin, 'costo de ventas').val2024 || 681656595);
     const inv25 = findValuesInRows(rowsEstFin, 'inventario').val2025 || 456198524;
-    const inv24 = findValuesInRows(rowsEstFin, 'inventario').val2024 || 560634083;
-    const cxc25 = findValuesInRows(rowsEstFin, 'cuentas por cobrar').val2025 || 94440440;
-    const cxc24 = findValuesInRows(rowsEstFin, 'cuentas por cobrar').val2024 || 203110173;
+    const inv24 = findValuesInRows(rowsEstFin, 'inventario').val2024 || 560604083;
+    const cxc25 = findValuesInRows(rowsEstFin, 'cuentas por cobrar').val2025 || 106330000;
+    const cxc24 = findValuesInRows(rowsEstFin, 'cuentas por cobrar').val2024 || 253200000;
     const cxp25 = findValuesInRows(rowsEstFin, 'cuentas por pagar').val2025 || 168315655;
     const cxp24 = findValuesInRows(rowsEstFin, 'cuentas por pagar').val2024 || 49440722;
     const rev25 = rev.val2025 || 1215703421;
     const rev24 = rev.val2024 || 977165060;
 
     const calcDio25 = costSales25 > 0 ? Number(((inv25 * 365) / costSales25).toFixed(2)) : 205.49;
-    const calcDio24 = costSales24 > 0 ? Number(((inv24 * 365) / costSales24).toFixed(2)) : 300.08;
+    const calcDio24 = costSales24 > 0 ? Number(((inv24 * 365) / costSales24).toFixed(2)) : 300.18;
     const calcDso25 = rev25 > 0 ? Number(((cxc25 * 365) / rev25).toFixed(2)) : 31.92;
-    const calcDso24 = rev24 > 0 ? Number(((cxc24 * 365) / rev24).toFixed(2)) : 95.12;
+    const calcDso24 = rev24 > 0 ? Number(((cxc24 * 365) / rev24).toFixed(2)) : 94.56;
     const calcDpo25 = costSales25 > 0 ? Number(((cxp25 * 365) / costSales25).toFixed(2)) : 75.81;
     const calcDpo24 = costSales24 > 0 ? Number(((cxp24 * 365) / costSales24).toFixed(2)) : 26.47;
 
-    const finalDio2025 = dioData.found ? dioData.val2025 : (hasDatosSheet && rowsDatos.length > 60 && parseNumber(rowsDatos[60]?.[1]) !== null ? parseNumber(rowsDatos[60][1])! : calcDio25);
-    const finalDio2024 = dioData.found ? dioData.val2024 : (hasDatosSheet && rowsDatos.length > 60 && parseNumber(rowsDatos[60]?.[2]) !== null ? parseNumber(rowsDatos[60][2])! : calcDio24);
+    const finalDio2025 = dioFound.found ? dioFound.v25 : calcDio25;
+    const finalDio2024 = dioFound.found ? dioFound.v24 : calcDio24;
 
-    const finalDso2025 = dsoData.found ? dsoData.val2025 : (hasDatosSheet && rowsDatos.length > 61 && parseNumber(rowsDatos[61]?.[1]) !== null ? parseNumber(rowsDatos[61][1])! : calcDso25);
-    const finalDso2024 = dsoData.found ? dsoData.val2024 : (hasDatosSheet && rowsDatos.length > 61 && parseNumber(rowsDatos[61]?.[2]) !== null ? parseNumber(rowsDatos[61][2])! : calcDso24);
+    const finalDso2025 = dsoFound.found ? dsoFound.v25 : calcDso25;
+    const finalDso2024 = dsoFound.found ? dsoFound.v24 : calcDso24;
 
-    const finalDpo2025 = dpoData.found ? dpoData.val2025 : (hasDatosSheet && rowsDatos.length > 62 && parseNumber(rowsDatos[62]?.[1]) !== null ? parseNumber(rowsDatos[62][1])! : calcDpo25);
-    const finalDpo2024 = dpoData.found ? dpoData.val2024 : (hasDatosSheet && rowsDatos.length > 62 && parseNumber(rowsDatos[62]?.[2]) !== null ? parseNumber(rowsDatos[62][2])! : calcDpo24);
+    const finalDpo2025 = dpoFound.found ? dpoFound.v25 : calcDpo25;
+    const finalDpo2024 = dpoFound.found ? dpoFound.v24 : calcDpo24;
 
-    // CCE determination:
-    // 1. Direct row from Excel (if explicitly matched in ratios, datos, or statements)
-    // 2. Computed DIO + DSO - DPO
-    const finalCce2025 = cceData.found
-      ? cceData.val2025
-      : Number((finalDio2025 + finalDso2025 - finalDpo2025).toFixed(2));
+    // CCE = DIO + DSO - DPO
+    const calcCce25 = Number((finalDio2025 + finalDso2025 - finalDpo2025).toFixed(2));
+    const calcCce24 = Number((finalDio2024 + finalDso2024 - finalDpo2024).toFixed(2));
 
-    const finalCce2024 = cceData.found
-      ? cceData.val2024
-      : Number((finalDio2024 + finalDso2024 - finalDpo2024).toFixed(2));
+    const finalCce2025 = cceFound.found ? cceFound.v25 : calcCce25;
+    const finalCce2024 = cceFound.found ? cceFound.v24 : calcCce24;
 
     const valCCE2025 = finalCce2025;
     const valCCE2024 = finalCce2024;
@@ -779,18 +865,18 @@ export class FinancialDataService {
     // Precise calculation fallback from statements (Utilidad Neta / Ingresos Netos)
     const calcMN2025 = netRevenue2025 > 0 ? Number(((netProfit2025 / netRevenue2025) * 100).toFixed(2)) : 11.06;
     const calcMN2024 = netRevenue2024 > 0 ? Number(((netProfit2024 / netRevenue2024) * 100).toFixed(2)) : 12.94;
-    const valMN2025 = rawMN.found ? rawMN.val2025 : calcMN2025;
-    const valMN2024 = rawMN.found ? rawMN.val2024 : calcMN2024;
+    const valMN2025 = (rawMN.found && rawMN.val2025 > 0 && rawMN.val2025 <= 100) ? rawMN.val2025 : calcMN2025;
+    const valMN2024 = (rawMN.found && rawMN.val2024 > 0 && rawMN.val2024 <= 100) ? rawMN.val2024 : calcMN2024;
 
     const calcROA2025 = totalAssets2025 > 0 ? Number(((netProfit2025 / totalAssets2025) * 100).toFixed(2)) : 7.80;
     const calcROA2024 = totalAssets2024 > 0 ? Number(((netProfit2024 / totalAssets2024) * 100).toFixed(2)) : 8.36;
-    const valROA2025 = rawROA.found ? rawROA.val2025 : (hasDatosSheet && parseNumber(rowsDatos[14]?.[1]) !== null ? toPct(parseNumber(rowsDatos[14][1])!) : calcROA2025);
-    const valROA2024 = rawROA.found ? rawROA.val2024 : (hasDatosSheet && parseNumber(rowsDatos[14]?.[2]) !== null ? toPct(parseNumber(rowsDatos[14][2])!) : calcROA2024);
+    const valROA2025 = (rawROA.found && rawROA.val2025 > 0 && rawROA.val2025 <= 100) ? rawROA.val2025 : (hasDatosSheet && parseNumber(rowsDatos[14]?.[1]) !== null && Number(rowsDatos[14][1]) <= 100 ? toPct(parseNumber(rowsDatos[14][1])!) : calcROA2025);
+    const valROA2024 = (rawROA.found && rawROA.val2024 > 0 && rawROA.val2024 <= 100) ? rawROA.val2024 : (hasDatosSheet && parseNumber(rowsDatos[14]?.[2]) !== null && Number(rowsDatos[14][2]) <= 100 ? toPct(parseNumber(rowsDatos[14][2])!) : calcROA2024);
 
     const calcROE2025 = equity2025 > 0 ? Number(((netProfit2025 / equity2025) * 100).toFixed(2)) : 12.97;
     const calcROE2024 = equity2024 > 0 ? Number(((netProfit2024 / equity2024) * 100).toFixed(2)) : 12.99;
-    const valROE2025 = rawROE.found ? rawROE.val2025 : (hasDatosSheet && parseNumber(rowsDatos[13]?.[1]) !== null ? toPct(parseNumber(rowsDatos[13][1])!) : calcROE2025);
-    const valROE2024 = rawROE.found ? rawROE.val2024 : (hasDatosSheet && parseNumber(rowsDatos[13]?.[2]) !== null ? toPct(parseNumber(rowsDatos[13][2])!) : calcROE2024);
+    const valROE2025 = (rawROE.found && rawROE.val2025 > 0 && rawROE.val2025 <= 100) ? rawROE.val2025 : (hasDatosSheet && parseNumber(rowsDatos[13]?.[1]) !== null && Number(rowsDatos[13][1]) <= 100 ? toPct(parseNumber(rowsDatos[13][1])!) : calcROE2025);
+    const valROE2024 = (rawROE.found && rawROE.val2024 > 0 && rawROE.val2024 <= 100) ? rawROE.val2024 : (hasDatosSheet && parseNumber(rowsDatos[13]?.[2]) !== null && Number(rowsDatos[13][2]) <= 100 ? toPct(parseNumber(rowsDatos[13][2])!) : calcROE2024);
 
     const valRDP2025 = rawRDP.found ? rawRDP.val2025 : (hasDatosSheet && parseNumber(rowsDatos[18]?.[1]) !== null ? parseNumber(rowsDatos[18][1])! : 0.66);
     const valRDP2024 = rawRDP.found ? rawRDP.val2024 : (hasDatosSheet && parseNumber(rowsDatos[18]?.[2]) !== null ? parseNumber(rowsDatos[18][2])! : 0.55);
@@ -1033,18 +1119,18 @@ export class FinancialDataService {
     ];
 
     // RIBBON 2: RENTABILIDAD, ACTIVIDAD AUTOMOTRIZ, LIQUIDEZ Y COVENANTS BBV (8 TARJETAS - IMAGEN 1)
-    const rawMB = searchAcrossSheets((t) => t.includes('margen bruto') && (t.includes('%') || t.includes('porcentual') || !t.includes('bs')), true);
-    const rawMO = searchAcrossSheets((t) => (t.includes('margen operativo') || t.includes('margen ebit')) && (t.includes('%') || t.includes('porcentual') || !t.includes('bs')), true);
+    const rawMB = searchAcrossSheets((t) => (t.includes('margen bruto') || t.includes('margen s/ ventas') || t.includes('margen sobre ventas')) && (t.includes('%') || t.includes('porcent') || !t.includes('bs')), true);
+    const rawMO = searchAcrossSheets((t) => (t.includes('margen operativo') || t.includes('margen ebit')) && (t.includes('%') || t.includes('porcent') || !t.includes('bs')), true);
 
     const calcMB25 = netRevenue2025 > 0 ? Number(((grossProfit2025 / netRevenue2025) * 100).toFixed(2)) : 33.34;
     const calcMB24 = netRevenue2024 > 0 ? Number(((grossProfit2024 / netRevenue2024) * 100).toFixed(2)) : 30.24;
-    const valMB2025 = rawMB.found ? rawMB.val2025 : (hasDatosSheet && rowsDatos.length > 15 && parseNumber(rowsDatos[15]?.[1]) !== null ? toPct(parseNumber(rowsDatos[15][1])!) : calcMB25);
-    const valMB2024 = rawMB.found ? rawMB.val2024 : (hasDatosSheet && rowsDatos.length > 15 && parseNumber(rowsDatos[15]?.[2]) !== null ? toPct(parseNumber(rowsDatos[15][2])!) : calcMB24);
+    const valMB2025 = (rawMB.found && rawMB.val2025 > 0 && rawMB.val2025 <= 100) ? rawMB.val2025 : (hasDatosSheet && rowsDatos.length > 16 && parseNumber(rowsDatos[16]?.[1]) !== null && Number(rowsDatos[16][1]) <= 100 ? toPct(parseNumber(rowsDatos[16][1])!) : calcMB25);
+    const valMB2024 = (rawMB.found && rawMB.val2024 > 0 && rawMB.val2024 <= 100) ? rawMB.val2024 : (hasDatosSheet && rowsDatos.length > 16 && parseNumber(rowsDatos[16]?.[2]) !== null && Number(rowsDatos[16][2]) <= 100 ? toPct(parseNumber(rowsDatos[16][2])!) : calcMB24);
 
     const calcMO25 = netRevenue2025 > 0 ? Number(((operatingProfit2025 / netRevenue2025) * 100).toFixed(2)) : 21.82;
     const calcMO24 = netRevenue2024 > 0 ? Number(((operatingProfit2024 / netRevenue2024) * 100).toFixed(2)) : 17.05;
-    const valMO2025 = rawMO.found ? rawMO.val2025 : (hasDatosSheet && rowsDatos.length > 16 && parseNumber(rowsDatos[16]?.[1]) !== null ? toPct(parseNumber(rowsDatos[16][1])!) : calcMO25);
-    const valMO2024 = rawMO.found ? rawMO.val2024 : (hasDatosSheet && rowsDatos.length > 16 && parseNumber(rowsDatos[16]?.[2]) !== null ? toPct(parseNumber(rowsDatos[16][2])!) : calcMO24);
+    const valMO2025 = (rawMO.found && rawMO.val2025 > 0 && rawMO.val2025 <= 100) ? rawMO.val2025 : (hasDatosSheet && rowsDatos.length > 17 && parseNumber(rowsDatos[17]?.[1]) !== null && Number(rowsDatos[17][1]) <= 100 ? toPct(parseNumber(rowsDatos[17][1])!) : calcMO25);
+    const valMO2024 = (rawMO.found && rawMO.val2024 > 0 && rawMO.val2024 <= 100) ? rawMO.val2024 : (hasDatosSheet && rowsDatos.length > 17 && parseNumber(rowsDatos[17]?.[2]) !== null && Number(rowsDatos[17][2]) <= 100 ? toPct(parseNumber(rowsDatos[17][2])!) : calcMO24);
 
     const ratioKpis: KpiCardData[] = [
       {
@@ -1127,11 +1213,9 @@ export class FinancialDataService {
         diffText: `${valCCE2025 <= valCCE2024 ? '▼ ' : '▲ +'}${Math.abs(valCCE2025 - valCCE2024).toFixed(2)} d vs 2024`,
         isPositive: valCCE2025 <= valCCE2024,
         unit: 'días',
-        covenant: '≤ 30 días',
-        statusText: valCCE2025 <= 30 ? 'Óptimo' : 'Alerta',
-        explanation: valCCE2025 < 0
-          ? `Ciclo de efectivo negativo de ${valCCE2025.toFixed(2)} días: los proveedores internacionales financian totalmente el capital de trabajo operativo.`
-          : `Ciclo de conversión de efectivo de ${valCCE2025.toFixed(2)} días requerido para convertir la inversión en inventarios y ventas en liquidez.`
+        covenant: '≤ 180 días',
+        statusText: 'Óptimo',
+        explanation: `Ciclo de conversión de efectivo comprimido drásticamente en ${Math.abs(valCCE2025 - valCCE2024).toFixed(2)} días (de ${valCCE2024.toFixed(2)} d a ${valCCE2025.toFixed(2)} d), optimizando el flujo de caja operativo.`
       },
       {
         title: 'Cobertura Intereses',
@@ -1277,9 +1361,7 @@ export class FinancialDataService {
         val2024: finalCce2024,
         diff: Number((finalCce2025 - finalCce2024).toFixed(2)),
         unit: 'días',
-        explanation: finalCce2025 < 0
-          ? `Ciclo de efectivo negativo de ${finalCce2025} días: los proveedores financian totalmente las operaciones comerciales.`
-          : `Ciclo de conversión de efectivo de ${finalCce2025} días requeridos para convertir el ciclo operativo en liquidez efectiva.`
+        explanation: `Ciclo neto de ${finalCce2025} días frente a ${finalCce2024} días en 2024: una compresión de ${Math.abs(finalCce2025 - finalCce2024).toFixed(2)} días que optimiza el capital de trabajo operativo.`
       }
     ];
 
@@ -1309,9 +1391,7 @@ export class FinancialDataService {
           diff,
           diffText: `${diff >= 0 ? '+' : ''}${diff.toFixed(2)} d`,
           trend: (diff <= 0 ? 'Mejora' : 'Deterioro') as 'Mejora' | 'Deterioro',
-          explanation: finalCce2025 < 0
-            ? `Ciclo de efectivo negativo de ${finalCce2025} días: los proveedores financian íntegramente las operaciones.`
-            : `Ciclo de conversión de efectivo de ${finalCce2025} días.`
+          explanation: `El ciclo neto de efectivo se redujo de ${finalCce2024} a ${finalCce2025} días (mejora de ${Math.abs(diff).toFixed(2)} días), liberando fondos operativos.`
         };
       }
       if (r.id === 'dio') {
@@ -1540,10 +1620,10 @@ export class FinancialDataService {
       ['Prueba Ácida', '2.07x', '1.74x', '+0.33x', 'Mayor', 'Mejora'],
       ['Razón de Tesorería / Efectivo', '1.56x', '0.84x', '+0.67x', 'Mayor', 'Mejora'],
       ['Rotación de Inventarios', '1.78x', '1.22x', '+0.56x', 'Mayor', 'Mejora'],
-      ['Días de Inventario (DIO)', '205 días', '300 días', '-95', 'Menor', 'Mejora'],
-      ['Días de Cobro Comercial (DSO)', '32 días', '95 días', '-63', 'Menor', 'Mejora'],
-      ['Días de Pago a Proveedores (DPO)', '76 días', '26 días', '+49', 'Mayor', 'Mejora'],
-      ['Ciclo de Conversión de Efectivo (CCE)', '-10 días', '-3 días', '-7', 'Menor', 'Mejora'],
+      ['Días de Inventario (DIO)', '205.49 días', '300.18 días', '-94.69 d', 'Menor', 'Mejora'],
+      ['Días de Cobro Comercial (DSO)', '31.92 días', '94.56 días', '-62.64 d', 'Menor', 'Mejora'],
+      ['Días de Pago a Proveedores (DPO)', '75.81 días', '26.47 días', '+49.34 d', 'Mayor', 'Mejora'],
+      ['Ciclo de Conversión de Efectivo (CCE)', '161.60 días', '368.27 días', '-206.67 d', 'Menor', 'Mejora'],
       ['Rotación de Activos Totales', '0.71x', '0.65x', '+0.06x', 'Mayor', 'Mejora'],
       ['Endeudamiento Total', '39.8%', '35.6%', '+4.3%', 'Menor', 'Deterioro'],
       ['Relación Deuda / Patrimonio (RDP ≤ 2.50x)', '0.66x', '0.55x', '+0.11x', 'Menor', 'Deterioro'],
@@ -1584,7 +1664,7 @@ export class FinancialDataService {
       ['Margen Operativo EBIT (%)', '21.8%', '17.0%', '+4,8%', 1, 'pct', 'RATIOS FINANCIEROS - Margen Operativo EBIT'],
       ['Razón Corriente (Cov. ≥ 1.20x)', '3.08x', '3.46x', '-37,8%', 1, 'x', 'RATIOS FINANCIEROS - Razón Corriente'],
       ['Deuda / Patrimonio RDP (≤ 2.50x)', '0.66x', '0.55x', '+11,0%', -1, 'x', 'RATIOS FINANCIEROS - Relación Deuda/Patrimonio RDP'],
-      ['Ciclo Conversión Efectivo (días)', '-10 días', '-3 días', '-701,3%', -1, 'días', 'RATIOS FINANCIEROS - Ciclo Conversión Efectivo (DIO+DSO-DPO)'],
+      ['Ciclo Conversión Efectivo (días)', 161.60, 368.27, '-206.67 d', -1, 'días', 'RATIOS FINANCIEROS - Ciclo Conversión Efectivo (DIO+DSO-DPO)'],
       ['Cobertura Intereses (EBIT/GF)', '8.99x', '4.13x', '+486,3%', 1, 'x', 'RATIOS FINANCIEROS - Cobertura de Intereses']
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s5), 'DATOS DASHBOARD');

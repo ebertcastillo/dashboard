@@ -155,7 +155,7 @@ import { PieChartItem } from '../charts/pie-chart.component';
                 <h4 class="font-bold text-slate-800 text-xs">RATIOS Y DUPONT</h4>
               </div>
               <p class="text-[11px] text-slate-500">
-                Liquidez (RC 3.08x), Solvencia (RDP 0.66x), Gestión (CCE -9.66 d, DIO 205.49 d), Rentabilidad (ROE 12.97%) y DuPont.
+                Liquidez (RC 3.08x), Solvencia (RDP 0.66x), Gestión (CCE 161.60 d, DIO 205.49 d), Rentabilidad (ROE 12.97%) y DuPont.
               </p>
             </div>
           </div>
@@ -279,15 +279,38 @@ export class FinancialDashboardComponent {
     if (!rep) return [];
     const d = rep.dupont;
     const r = rep.ratioKpis;
+    const inc = rep.incomeBreakdown;
+
+    const calcMB25 = inc.netRevenue2025 > 0 ? Number(((inc.grossProfit2025 / inc.netRevenue2025) * 100).toFixed(2)) : 33.34;
+    const calcMB24 = inc.netRevenue2024 > 0 ? Number(((inc.grossProfit2024 / inc.netRevenue2024) * 100).toFixed(2)) : 30.24;
+    const calcMO25 = inc.netRevenue2025 > 0 ? Number(((inc.operatingProfit2025 / inc.netRevenue2025) * 100).toFixed(2)) : 21.82;
+    const calcMO24 = inc.netRevenue2024 > 0 ? Number(((inc.operatingProfit2024 / inc.netRevenue2024) * 100).toFixed(2)) : 17.05;
+
     const mb = r.find(k => k.title.includes('Margen Bruto'));
-    const me = r.find(k => k.title.includes('Margen Operativo'));
+    const me = r.find(k => k.title.includes('Margen Operativo') || k.title.includes('Margen EBIT'));
     const roa = r.find(k => k.title === 'ROA');
+
+    const vMB25 = (mb && mb.value2025 > 0 && mb.value2025 <= 100) ? mb.value2025 : calcMB25;
+    const vMB24 = (mb && mb.value2024 > 0 && mb.value2024 <= 100) ? mb.value2024 : calcMB24;
+
+    const vMO25 = (me && me.value2025 > 0 && me.value2025 <= 100) ? me.value2025 : calcMO25;
+    const vMO24 = (me && me.value2024 > 0 && me.value2024 <= 100) ? me.value2024 : calcMO24;
+
+    const vMN25 = (d.netMargin.year2025 > 0 && d.netMargin.year2025 <= 100) ? d.netMargin.year2025 : 11.06;
+    const vMN24 = (d.netMargin.year2024 > 0 && d.netMargin.year2024 <= 100) ? d.netMargin.year2024 : 12.94;
+
+    const vROA25 = (roa && roa.value2025 > 0 && roa.value2025 <= 100) ? roa.value2025 : 7.80;
+    const vROA24 = (roa && roa.value2024 > 0 && roa.value2024 <= 100) ? roa.value2024 : 8.36;
+
+    const vROE25 = (d.roe.year2025 > 0 && d.roe.year2025 <= 100) ? d.roe.year2025 : 12.97;
+    const vROE24 = (d.roe.year2024 > 0 && d.roe.year2024 <= 100) ? d.roe.year2024 : 12.99;
+
     return [
-      { label: 'Margen Bruto', v2024: mb?.value2024 ?? 30.24, v2025: mb?.value2025 ?? 33.34 },
-      { label: 'Margen EBIT', v2024: me?.value2024 ?? 17.05, v2025: me?.value2025 ?? 21.82 },
-      { label: 'Margen Neto', v2024: d.netMargin.year2024, v2025: d.netMargin.year2025 },
-      { label: 'ROA', v2024: roa?.value2024 ?? 8.36, v2025: roa?.value2025 ?? 7.80 },
-      { label: 'ROE', v2024: d.roe.year2024, v2025: d.roe.year2025 }
+      { label: 'Margen Bruto', v2024: vMB24, v2025: vMB25 },
+      { label: 'Margen EBIT', v2024: vMO24, v2025: vMO25 },
+      { label: 'Margen Neto', v2024: vMN24, v2025: vMN25 },
+      { label: 'ROA', v2024: vROA24, v2025: vROA25 },
+      { label: 'ROE', v2024: vROE24, v2025: vROE25 }
     ];
   });
 }

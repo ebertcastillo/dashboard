@@ -153,6 +153,8 @@ export class ResultsSectionComponent implements AfterViewInit, OnDestroy, OnChan
   ];
 
   @Input() rentabilityItems: { label: string; v2024: number; v2025: number }[] = [
+    { label: 'Margen Bruto', v2024: 30.24, v2025: 33.34 },
+    { label: 'Margen EBIT', v2024: 17.05, v2025: 21.82 },
     { label: 'Margen Neto', v2024: 12.94, v2025: 11.06 },
     { label: 'ROA', v2024: 8.36, v2025: 7.80 },
     { label: 'ROE', v2024: 12.99, v2025: 12.97 }
@@ -277,6 +279,8 @@ export class ResultsSectionComponent implements AfterViewInit, OnDestroy, OnChan
                 ticks: { font: { size: 10, weight: 'bold' }, color: '#334155' }
               },
               y: {
+                beginAtZero: true,
+                suggestedMax: 35,
                 grid: { color: '#f1f5f9' },
                 ticks: { callback: (v) => `${v}%` }
               }

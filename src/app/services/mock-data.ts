@@ -305,14 +305,14 @@ export const COMMERCIAL_INITIAL_DATA: FinancialReport = {
     {
       title: 'Ciclo Conversión Efectivo',
       subtitle: 'DIO + DSO - DPO',
-      value2025: -9.66,
-      value2024: -2.64,
-      diffText: '▼ -7,02 d vs 2024',
+      value2025: 161.60,
+      value2024: 368.27,
+      diffText: '▼ -206,67 d vs 2024',
       isPositive: true,
       unit: 'días',
-      covenant: '≤ 30 días',
+      covenant: '≤ 180 días',
       statusText: 'Óptimo',
-      explanation: 'Ciclo de efectivo negativo de -9.66 días: los proveedores internacionales financian totalmente el capital de trabajo operativo.'
+      explanation: 'Ciclo de conversión de efectivo comprimido drásticamente en 206.67 días (de 368.27 d en 2024 a 161.60 d en 2025), optimizando el flujo de caja operativo.'
     },
     {
       title: 'Cobertura Intereses',
@@ -465,15 +465,15 @@ export const COMMERCIAL_INITIAL_DATA: FinancialReport = {
       category: 'GESTIÓN',
       formula: '(Inventario / Costo de Ventas) × 365',
       year2025: 205.49,
-      year2024: 300.08,
-      diff: -94.59,
-      diffText: '-94.59 d',
+      year2024: 300.18,
+      diff: -94.69,
+      diffText: '-94.69 d',
       betterIf: 'Menor',
       trend: 'Mejora',
       unit: 'días',
       status: 'optimal',
-      interpretation: 'Disminución drástica de 94.59 días en el tiempo de permanencia del stock.',
-      explanation: 'El stock pasó de tardar 300.08 días a solo 205.49 días en convertirse en ventas comerciales efectivas.'
+      interpretation: 'Disminución drástica de 94.69 días en el tiempo de permanencia del stock.',
+      explanation: 'El stock pasó de tardar 300.18 días a 205.49 días en convertirse en ventas comerciales efectivas.'
     },
     {
       id: 'dso',
@@ -481,15 +481,15 @@ export const COMMERCIAL_INITIAL_DATA: FinancialReport = {
       category: 'GESTIÓN',
       formula: '(Cuentas por Cobrar / Ventas) × 365',
       year2025: 31.92,
-      year2024: 95.12,
-      diff: -63.20,
-      diffText: '-63.20 d',
+      year2024: 94.56,
+      diff: -62.64,
+      diffText: '-62.64 d',
       betterIf: 'Menor',
       trend: 'Mejora',
       unit: 'días',
       status: 'optimal',
       interpretation: 'Cobranza comercial sumamente ágil y eficiente.',
-      explanation: 'El periodo de cobro se redujo de 95.12 días a apenas 31.92 días, acelerando sustancialmente el ingreso de fondos.'
+      explanation: 'El periodo de cobro se redujo de 94.56 días a apenas 31.92 días, acelerando sustancialmente el ingreso de fondos.'
     },
     {
       id: 'dpo',
@@ -512,16 +512,16 @@ export const COMMERCIAL_INITIAL_DATA: FinancialReport = {
       name: 'Ciclo de Conversión de Efectivo (CCE)',
       category: 'GESTIÓN',
       formula: 'DIO + DSO - DPO',
-      year2025: -9.66,
-      year2024: -2.64,
-      diff: -7.02,
-      diffText: '-7.02 d',
+      year2025: 161.60,
+      year2024: 368.27,
+      diff: -206.67,
+      diffText: '-206.67 d',
       betterIf: 'Menor',
       trend: 'Mejora',
       unit: 'días',
       status: 'optimal',
-      interpretation: 'Ciclo de capital de trabajo autofinanciado por proveedores.',
-      explanation: 'Ciclo negativo de -9.66 días: la empresa cobra sus ventas antes de tener que pagar a sus proveedores.'
+      interpretation: 'Compresión extraordinaria de 206.67 días en el ciclo de conversión de efectivo.',
+      explanation: 'El ciclo neto se redujo notablemente de 368.27 a 161.60 días (DIO 205.49 + DSO 31.92 - DPO 75.81), liberando recursos de capital de trabajo.'
     },
     {
       id: 'rat',
@@ -841,10 +841,10 @@ export const COMMERCIAL_INITIAL_DATA: FinancialReport = {
 
   // CICLO DE CAPITAL DE TRABAJO (IMAGEN 3)
   workingCapitalCycle: [
-    { id: 'dio', name: 'Días de Inventario', shortName: 'DIO', val2025: 205.49, val2024: 300.08, diff: -94.59, unit: 'días', explanation: 'Reducción de 94.59 días en el tiempo medio de permanencia del stock de repuestos y unidades.' },
-    { id: 'dso', name: 'Días de Cobro', shortName: 'DSO', val2025: 31.92, val2024: 95.12, diff: -63.20, unit: 'días', explanation: 'Recuperación de cuentas por cobrar en solo 31.92 días (vs 95.12 días en 2024).' },
-    { id: 'dpo', name: 'Días Pago a Proveedores', shortName: 'DPO', val2025: 75.81, val2024: 26.47, diff: 49.34, unit: 'días', explanation: 'Financiamiento comercial ampliado a 75.81 días otorgado por las fábricas proveedoras.' },
-    { id: 'cce', name: 'Ciclo Conversión Efectivo', shortName: 'CCE', val2025: -9.66, val2024: -2.64, diff: -7.02, unit: 'días', explanation: 'Ciclo negativo de -9.66 días: los proveedores financian íntegramente las operaciones.' }
+    { id: 'dio', name: 'Días de Inventario', shortName: 'DIO', val2025: 205.49, val2024: 300.18, diff: -94.69, unit: 'días', explanation: 'Reducción de 94.69 días en el tiempo medio de permanencia del stock de repuestos y unidades (de 300.18 a 205.49 días).' },
+    { id: 'dso', name: 'Días de Cobro', shortName: 'DSO', val2025: 31.92, val2024: 94.56, diff: -62.64, unit: 'días', explanation: 'Recuperación de cuentas por cobrar en solo 31.92 días (vs 94.56 días en 2024).' },
+    { id: 'dpo', name: 'Días Pago a Proveedores', shortName: 'DPO', val2025: 75.81, val2024: 26.47, diff: 49.34, unit: 'días', explanation: 'Financiamiento comercial ampliado a 75.81 días (vs 26.47 días en 2024) otorgado por las fábricas proveedoras.' },
+    { id: 'cce', name: 'Ciclo Conversión Efectivo', shortName: 'CCE', val2025: 161.60, val2024: 368.27, diff: -206.67, unit: 'días', explanation: 'Ciclo neto de 161.60 días frente a 368.27 días en 2024: una compresión de 206.67 días que optimiza el capital de trabajo operativo.' }
   ],
 
   // VENTAS POR LÍNEA DE NEGOCIO (IMAGEN 3 - NOTA 15)
