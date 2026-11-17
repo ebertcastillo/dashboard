@@ -80,7 +80,7 @@ export class TeamMembersComponent {
       id: 1,
       name: 'Ebert Castillo Cortez',
       ci: '5959351 LP',
-      initials: 'ECC'
+      initials: 'EC'
     },
     {
       id: 2,
